@@ -522,6 +522,9 @@ const ActiveLearningView = View.extend({
                 return;
             }
             const annotation = this.annotationsByImageId[imageId].predictions.get('annotation');
+            if (annotation && annotation.attributes && annotation.attributes.overlappingSuperpixels) {
+                store.overlappingSuperpixels = annotation.attributes.overlappingSuperpixels;
+            }
             const labels = this.annotationsByImageId[imageId].labels.get('annotation');
             const labelValues = labels.elements[0].values;
             const userData = annotation.elements[0].user;
