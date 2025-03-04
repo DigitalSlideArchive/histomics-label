@@ -88,7 +88,7 @@ const updateSelectedPage = () => {
     const endIndex = Math.min(startIndex + store.pageSize, store.sortedSuperpixelIndices.length);
     store.superpixelsToDisplay = store.sortedSuperpixelIndices.slice(startIndex, endIndex);
     store.currentImageId = store.superpixelsToDisplay[store.selectedIndex].imageId;
-    store.maxPage = Math.ceil(store.sortedSuperpixelIndices.length / store.pageSize) - 1;
+    store.maxPage = Math.max(Math.ceil(store.sortedSuperpixelIndices.length / store.pageSize) - 1, 0);
 };
 
 /**
