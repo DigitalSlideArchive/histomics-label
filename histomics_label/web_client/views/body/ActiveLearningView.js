@@ -569,6 +569,7 @@ const ActiveLearningView = View.extend({
             const version = imageAndJob[0].split(':')[1];
             const jobInfo = ((dockerImages[image] || {})[version] || {})[imageAndJob[1]];
             if (!jobInfo) {
+                console.error('Unable to find specified superpixel classification image.');
                 throw new Error('Unable to find specified superpixel classification image.');
             }
             return this.getJobCertaintyAndFeatureChoices(jobInfo.xmlspec);
