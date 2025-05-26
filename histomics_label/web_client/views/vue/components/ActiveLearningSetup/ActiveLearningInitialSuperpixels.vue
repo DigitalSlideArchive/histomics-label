@@ -1,19 +1,47 @@
 <script>
 import Vue from 'vue';
 
+import { activeLearningSteps } from '../constants.js';
+
+import { store } from '../store.js';
+
 export default Vue.extend({
     props: ['backboneParent', 'certaintyMetrics', 'featureShapes'],
-    data() {
-        return {
-            radius: 100,
-            magnification: 5,
-            certaintyChoice: '',
-            featureChoice: ''
-        };
-    },
     computed: {
         validForm() {
             return this.radius > 0 && this.magnification > 0;
+        },
+        radius: {
+            get() {
+                return store.initialTrainingParameters.radius || 100;
+            },
+            set(value) {
+                store.initialTrainingParameters.radius = value;
+            }
+        },
+        magnification: {
+            get() {
+                return store.initialTrainingParameters.magnification || 5;
+            },
+            set(value) {
+                store.initialTrainingParameters.magnification = value;
+            }
+        },
+        certaintyChoice: {
+            get() {
+                return store.initialTrainingParameters.certainty;
+            },
+            set(value) {
+                store.initialTrainingParameters.certainty = value;
+            }
+        },
+        featureChoice: {
+            get() {
+                return store.initialTrainingParameters.feature;
+            },
+            set(value) {
+                store.initialTrainingParameters.feature = value;
+            }
         }
     },
     mounted() {
@@ -22,12 +50,15 @@ export default Vue.extend({
     },
     methods: {
         initialTraining() {
-            this.backboneParent.initialTraining(
-                this.radius,
-                this.magnification,
-                this.certaintyChoice,
-                this.featureChoice
-            );
+            store.activeLearningStep = activeLearningSteps.InitialLabeling;
+            store.initialTrainingParameters = {
+                radius: this.radius,
+                magnification: this.magnification,
+                certainty: this.certaintyChoice,
+                feature: this.featureChoice
+            };
+            this.backboneParent.initialTraining();
+            this.backboneParent.updateHistomicsYamlConfig();
         }
     }
 });
