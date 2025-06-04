@@ -38,6 +38,7 @@ export default Vue.extend({
             const scale = this.superpixel.scale;
             const thumbnailSize = this.previewSize * 100;
             const params = `?left=${bbox[0] / scale}&top=${bbox[1] / scale}&right=${bbox[2] / scale}&bottom=${bbox[3] / scale}&width=${thumbnailSize}&height=${thumbnailSize}&encoding=PNG`;
+            const mask = store.overlappingSuperpixels ? [0,0,0,0] : [255,255,255,255];
             const functionJson = JSON.stringify({
                 function: {
                     name: 'large_image.tilesource.stylefuncs.maskPixelValues',
@@ -45,7 +46,7 @@ export default Vue.extend({
                     parameters: {
                         values: pixelVals,
                         positive: [0, 0, 0, 0],
-                        negative: [255, 255, 255, 255]
+                        negative: mask,
                     }
                 },
                 bands: []

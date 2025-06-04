@@ -444,6 +444,14 @@ export default Vue.extend({
             if (newLabel === previousLabel) {
                 return;
             }
+
+            const bboxes = overlayElement.get('user').bbox
+            const isEmtpyBackground = index == 0 && bboxes.length >= 4 && bboxes.slice(0, 4).every((val, idx) => val === [0, 0, 1, 1][idx]);
+            // Don't label the empty background superpixel
+            if (isEmtpyBackground) {
+              return;
+            }
+
             const offset = boundaries ? 1 : 0;
             data[index] = data[index + offset] = newLabel;
             store.labelsOverlayLayer.indexModified(index, index + offset).draw();
