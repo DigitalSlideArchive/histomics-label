@@ -3,8 +3,10 @@ import View from '@girder/core/views/View';
 import { restRequest, getApiRoot } from '@girder/core/rest';
 import { confirm } from '@girder/core/dialog';
 import _ from 'underscore';
+import events from '@girder/core/events';
 
 import router from '@girder/histomicsui/router';
+import eventStream from '@girder/core/utilities/EventStream';
 import FolderCollection from '@girder/core/collections/FolderCollection';
 import AnnotationModel from '@girder/large_image_annotation/models/AnnotationModel';
 import ItemCollection from '@girder/core/collections/ItemCollection';
@@ -66,6 +68,13 @@ const ActiveLearningView = View.extend({
         // Use a map to preserve insertion order
         this.categoryMap = new Map();
         this.histomicsUIConfig = {};
+
+        events.listenTo(eventStream, 'g:event.histomics_label.config_updated', (event) => {
+            Object.entries(event.data).forEach(([key, value]) => {
+                this.histomicsUIConfig[key] = value;
+                store.initialTrainingParameters[key] = value;
+            });
+        });
 
         this.mountToolbarComponent();
         this.getCurrentUser();
