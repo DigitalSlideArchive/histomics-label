@@ -23,6 +23,7 @@ const store = Vue.observable({
     zoom: 1,
     center: { x: 1, y: 1 },
     sortedSuperpixelIndices: [],
+    overlappingSuperpixels: false,
     reviewSuperpixel: null,
     currentUser: null,
     epoch: -1,
@@ -88,7 +89,7 @@ const updateSelectedPage = () => {
     const endIndex = Math.min(startIndex + store.pageSize, store.sortedSuperpixelIndices.length);
     store.superpixelsToDisplay = store.sortedSuperpixelIndices.slice(startIndex, endIndex);
     store.currentImageId = store.superpixelsToDisplay[store.selectedIndex].imageId;
-    store.maxPage = Math.ceil(store.sortedSuperpixelIndices.length / store.pageSize) - 1;
+    store.maxPage = Math.max(Math.ceil(store.sortedSuperpixelIndices.length / store.pageSize) - 1, 0);
 };
 
 /**

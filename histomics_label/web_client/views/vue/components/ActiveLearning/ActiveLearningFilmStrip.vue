@@ -100,7 +100,7 @@ export default {
             store.pageSize = Math.floor(width / (cardWidth + padding));
             // update page
             store.page = Math.floor(currentIndex / store.pageSize);
-            store.maxPage = Math.ceil((store.sortedSuperpixelIndices.length) / store.pageSize) - 1;
+            store.maxPage = Math.max(Math.ceil((store.sortedSuperpixelIndices.length) / store.pageSize) - 1, 0);
             // update selected index
             store.selectedIndex = currentIndex - (store.pageSize * store.page);
             updateSelectedPage();
