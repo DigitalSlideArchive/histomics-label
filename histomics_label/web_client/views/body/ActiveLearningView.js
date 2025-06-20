@@ -3,8 +3,10 @@ import View from '@girder/core/views/View';
 import { restRequest, getApiRoot } from '@girder/core/rest';
 import { confirm } from '@girder/core/dialog';
 import _ from 'underscore';
+import events from '@girder/core/events';
 
 import router from '@girder/histomicsui/router';
+import eventStream from '@girder/core/utilities/EventStream';
 import FolderCollection from '@girder/core/collections/FolderCollection';
 import AnnotationModel from '@girder/large_image_annotation/models/AnnotationModel';
 import ItemCollection from '@girder/core/collections/ItemCollection';
@@ -66,6 +68,13 @@ const ActiveLearningView = View.extend({
         // Use a map to preserve insertion order
         this.categoryMap = new Map();
         this.histomicsUIConfig = {};
+
+        events.listenTo(eventStream, 'g:event.histomics_label.config_updated', (event) => {
+            Object.entries(event.data).forEach(([key, value]) => {
+                this.histomicsUIConfig[key] = value;
+                store.initialTrainingParameters[key] = value;
+            });
+        });
 
         this.mountToolbarComponent();
         this.getCurrentUser();
@@ -131,6 +140,14 @@ const ActiveLearningView = View.extend({
             });
             store.exclusions = _.reject(excluded, (v) => !isValidNumber(v));
 
+            // Initialize the initial training parameters if they are set
+            store.initialTrainingParameters = {
+                radius: this.histomicsUIConfig.radius || null,
+                magnification: this.histomicsUIConfig.magnification || null,
+                certainty: this.histomicsUIConfig.certainty || null,
+                feature: this.histomicsUIConfig.feature || null
+            };
+
             return this.fetchFoldersAndItems();
         });
     },
@@ -138,6 +155,15 @@ const ActiveLearningView = View.extend({
     updateHistomicsYamlConfig: debounce(function () {
         // Make sure the flag to enable active learning is set to true
         this.histomicsUIConfig.activeLearning = true;
+
+        // Remember the initial training parameters if they are set
+        if (!_.isEmpty(store.initialTrainingParameters)) {
+            const { radius, magnification, certainty, feature } = store.initialTrainingParameters;
+            isValidNumber(radius) && (this.histomicsUIConfig.radius = radius);
+            isValidNumber(magnification) && (this.histomicsUIConfig.magnification = magnification);
+            isValidNumber(certainty) && (this.histomicsUIConfig.certainty = certainty);
+            isValidNumber(feature) && (this.histomicsUIConfig.feature = feature);
+        }
 
         const groups = new Map();
         this.categoryMap.clear(); // Keep the internal categoryMap in sync with changes
@@ -690,18 +716,48 @@ const ActiveLearningView = View.extend({
         this.applyReviews();
         // Make sure that our folder ids are up-to-date
         const data = this.generateClassificationJobData();
-        data.jobId = this.lastRunJobId;
         data.randomInput = false;
+        data.train = true;
         const excluded = _.map(store.exclusions, (idx) => store.categories[idx + 1].label);
+        data.exclude = JSON.stringify(excluded);
+        if (!this.lastRunJobId) {
+            // If there is no job id associated with this project, this is actually the initial
+            // training with our system
+            const { radius, magnification, certainty, feature } = store.initialTrainingParameters;
+            if ([radius, magnification, certainty, feature].some((value) => !value)) {
+                // Projects trained externally should have the required parameters set in the
+                // config file. Prompt users to set any missing values.
+                restRequest({
+                    url: 'item',
+                    data: {
+                        folderId: this.trainingDataFolderId,
+                        name: '.histomicsui_config.yaml'
+                    }
+                }).done((response) => {
+                    const configUrl = `${window.location.origin}/#item/${response[0]._id}`;
+                    confirm({
+                        text: '<p>ERROR - Job request cannot be completed.</p>' +
+                        '<p>Please set the required keys in the histomicsui config file:</p>' +
+                        `<ul>${!radius ? `<li>radius</li>` : ''}` +
+                        `${!magnification ? `<li>magnification</li>` : ''}` +
+                        `${!certainty ? `<li>certainty</li>` : ''}` +
+                        `${!feature ? `<li>feature</li>` : ''}</ul>`,
+                        yesText: 'View config',
+                        noText: 'Okay',
+                        confirmCallback: () => { window.open(configUrl, '_blank'); },
+                        escapedHtml: true
+                    });
+                });
+                return;
+            }
+            this.initialTraining();
+            return;
+        }
+        data.jobId = this.lastRunJobId;
         restRequest({
             method: 'POST',
             url: `slicer_cli_web/${this.activeLearningJobUrl}/rerun`,
-            data: {
-                jobId: this.lastRunJobId,
-                randominput: false,
-                train: true,
-                exclude: JSON.stringify(excluded)
-            }
+            data
         }).done((job) => {
             store.page = 0;
             store.selectedIndex = 0;
@@ -715,9 +771,12 @@ const ActiveLearningView = View.extend({
             url: `slicer_cli_web/${this.activeLearningJobUrl}/run`,
             data
         }).done((response) => {
+            const hadPreviousJob = !!this.lastRunJobId;
             this.lastRunJobId = response._id;
             this.waitForJobCompletion(response._id, goToNextStep);
-            this.watchForSuperpixels();
+            if (hadPreviousJob) {
+                this.watchForSuperpixels();
+            }
         });
     },
 
@@ -735,19 +794,18 @@ const ActiveLearningView = View.extend({
         };
     },
 
-    generateInitialSuperpixels(radius, magnification, certaintyMetric, featureShape) {
+    initialTraining() {
         const data = this.generateClassificationJobData();
         Object.assign(data, {
             labels: JSON.stringify([]),
-            magnification,
-            radius,
+            magnification: store.initialTrainingParameters.magnification,
+            radius: store.initialTrainingParameters.radius,
             girderApiUrl: '',
             girderToken: '',
-            certainty: certaintyMetric,
-            feature: featureShape,
+            certainty: store.initialTrainingParameters.certainty,
+            feature: store.initialTrainingParameters.feature,
             train: false
         });
-        store.activeLearningStep = activeLearningSteps.InitialLabeling;
         this.getAnnotations();
         this.triggerJob(data, true);
     },
